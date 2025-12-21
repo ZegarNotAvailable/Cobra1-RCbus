@@ -1,0 +1,238 @@
+0000-                  5               .sf Cobra-term.sym
+0000-                  6       ;        .in ca80.inc
+0000-                  7       ;*********************************************************************
+0000-                  8               .sm code           ;
+F000-                  9               .or $F000          ;
+F000-                 10       ;**************************************************************************
+00E4-                 11       DATA_8251       .EQ 0E4H                ; Data register on channel A      *
+00E5-                 12       CONTR_8251      .EQ 0E5H                ; Control registers on channel A  *
+0000-                 13       eos             .equ    $00             ; End of string                   *
+000D-                 14       cr              .equ    $0d             ; Carriage return                 *
+000A-                 15       lf              .equ    $0a             ; Line feed                       *
+0020-                 16       space           .equ    $20             ; Space                           *
+C010-                 17       COBRA_HOT       .EQ     0C010H          ; Hot start                       *
+C51A-                 18       COBRA_PUTC      .EQ     0C51AH          ; Print char of Cobra             *
+C5D7-                 19       COBRA_CLS       .EQ     0C5D7H          ; CLS of Cobra                    *
+F000-                 20       ;**************************************************************************
+F000-                 21       ECHO:
+F000-31 F0 BF         22 ( 10)         LD      SP,0BFF0h
+F003-CD F7 C6         23 ( 17)         CALL    0C6F7H
+F006-21 1E F0         24 ( 10)         LD      HL,ECHO1
+F009-22 F8 BF         25 ( 20)         LD      (0BFF8H),HL
+F00C-CD 5D F0         26 ( 17)         CALL    INIT_8251       ; MIK1
+F00F-                 27           ;    CALL    INIT_BUFFER
+F00F-CD D7 C5         28 ( 17)         CALL    COBRA_CLS
+F012-21 25 F0         29 ( 10)         LD      hl, hello_msg
+F015-CD 3F F0         30 ( 17)         CALL    puts
+F018-CD 4D F0         31 ( 17)         CALL    crlf
+F01B-                 32           ;    CALL    FLUSH_TX
+F01B-C3 10 C0         33 ( 10)         JP      COBRA_HOT
+F01E-CD 5A F0         34 ( 17) ECHO1:  CALL    PUTC
+F021-CD 1A C5         35 ( 17)         CALL    COBRA_PUTC
+F024-                 36           ;    CALL    FLUSH_TX
+F024-C9               37 ( 10)         RET
+F025-                 38
+F025-                 39       ;
+F025-                 40       ; Message definitions
+F025-                 41       ;
+F025-43 6F 62 72 
+     61 20 74 65 
+     72 6D 69 6E 
+     61 6C 20 2D 
+     20 66 6F 72 
+     20 43 41 38 
+     30 00            42       hello_msg       .DB   "Cobra terminal - for CA80", eos
+F03F-                 43
+F03F-                 44       ;
+F03F-                 45       ; Send a string to the serial line, HL contains the pointer to the string:
+F03F-                 46       ;
+F03F-F5               47 ( 11) puts            push    af
+F040-                 48       ;                push    hl
+F040-7E               49 (  7) puts_loop       ld      a, (hl)
+F041-FE 00            50 (  7)                 cp      eos             ; End of string reached?
+F043-28 06            51 ( 7+)                 jr      z, puts_end     ; Yes
+F045-CD 5A F0         52 ( 17)                 call    putc
+F048-23               53 (  6)                 inc     hl              ; Increment character pointer
+F049-18 F5            54 ( 12)                 jr      puts_loop       ; Transmit next character
+F04B-                 55       puts_end        ;pop     hl
+F04B-F1               56 ( 10)                 pop     af
+F04C-C9               57 ( 10)                 ret
+F04D-                 58       ;
+F04D-                 59       ; Send a CR/LF pair:
+F04D-                 60       ;
+F04D-F5               61 ( 11) crlf            push    af
+F04E-3E 0D            62 (  7)                 ld      a, cr
+F050-CD 5A F0         63 ( 17)                 call    putc
+F053-3E 0A            64 (  7)                 ld      a, lf
+F055-CD 5A F0         65 ( 17)                 call    putc
+F058-F1               66 ( 10)                 pop     af
+F059-C9               67 ( 10)                 ret
+F05A-                 68
+F05A-                 69       ;------------------------------------------------------------------------------
+F05A-                 70       ;---
+F05A-                 71       ;--- I/O subroutines
+F05A-                 72       ;---
+F05A-                 73       ;------------------------------------------------------------------------------
+F05A-                 74
+F05A-                 75       ;
+F05A-                 76       ; Send a single character to the serial line (A contains the character):
+F05A-                 77       ;
+F05A-                 78       putc
+F05A-C3 7D F0         79 ( 10)     JP  SEND_CHAR
+F05D-                 80                       ; LD      (SAVE_CHAR),A   ; instead of PUSH AF
+F05D-                 81                       ; CALL    CHECK_TX        ; try to send char from buffer
+F05D-                 82                       ; CALL    write_buffer    ; put new char in buffer
+F05D-                 83                       ; RET
+F05D-                 84       ;
+F05D-                 85       ; Wait for a single incoming character on the serial line
+F05D-                 86       ; and read it, result is in A:
+F05D-                 87       ;
+F05D-                 88       ; getc
+F05D-                 89       ;                 CALL    CHECK_TX        ; try to send char from buffer
+F05D-                 90       ;                 CALL    READ_CHAR       ; is new char?
+F05D-                 91       ;                 JR      Z,GETC          ; repeat if not
+F05D-                 92       ;                 RET                     ; in A new char
+F05D-                 93
+F05D-                 94       ;************************************************************************
+F05D-                 95       ;*              I8251A INIT                                             *
+F05D-                 96       ;*      SEE RADIOELEKTRONIK 1/1994                                      *
+F05D-                 97       ;************************************************************************
+F05D-                 98       INIT_8251:
+F05D-AF               99 (  4)         XOR     A
+F05E-D3 E5           100 ( 11)         OUT     (CONTR_8251),A
+F060-D3 E5           101 ( 11)         OUT     (CONTR_8251),A
+F062-D3 E5           102 ( 11)         OUT     (CONTR_8251),A
+F064-3E 40           103 (  7)         LD      A,40H               ;RESET
+F066-D3 E5           104 ( 11)         OUT     (CONTR_8251),A
+F068-3E 4E           105 (  7)         LD      A,4EH               ;8 BIT, 1 STOP, X16
+F06A-D3 E5           106 ( 11)         OUT     (CONTR_8251),A
+F06C-DB E4           107 ( 11)         IN      A,(DATA_8251)   ;FLUSH
+F06E-DB E4           108 ( 11)         IN      A,(DATA_8251)
+F070-3E 07           109 (  7)         LD      A,07H               ;RST=1, DTR=0, Rx Tx ON
+F072-D3 E5           110 ( 11)         OUT     (CONTR_8251),A
+F074-C9              111 ( 10)         RET
+F075-                112
+F075-                113       ;************************************************************************
+F075-                114       ;*              I8251A READ CHAR                                        *
+F075-                115       ;************************************************************************
+F075-                116       READ_CHAR:
+F075-DB E5           117 ( 11)         IN      A,(CONTR_8251)
+F077-E6 02           118 (  7)         AND     02H             ; Rx ready?
+F079-C8              119 ( 5+)         RET     Z               ; return if not
+F07A-DB E4           120 ( 11)         IN      A,(DATA_8251)   ; read new char
+F07C-C9              121 ( 10)         RET
+F07D-                122
+F07D-                123       ;************************************************************************
+F07D-                124       ;*              I8251A SEND CHAR                                        *
+F07D-                125       ;************************************************************************
+F07D-                126       SEND_CHAR:
+F07D-F5              127 ( 11)     PUSH    AF  ;       LD      (SAVE_CHAR),A
+F07E-                128       SEND1:
+F07E-DB E5           129 ( 11)         IN      A,(CONTR_8251)
+F080-E6 01           130 (  7)         AND     01H
+F082-28 FA           131 ( 7+)         JR      Z,SEND1
+F084-F1              132 ( 10)     POP AF      ;       LD      A,(SAVE_CHAR)
+F085-D3 E4           133 ( 11)         OUT     (DATA_8251),A
+F087-C9              134 ( 10)         RET
+F088-                135
+F088-                136       ; Z80 Ring Buffer with Empty/Full Check Example
+F088-                137
+F088-                138       ; Constants
+F088-                139       ; BUFFER_START .equ 0D0H   ; Start address of the buffer in memory
+F088-                140
+F088-                141       ; ; Buffer initialization
+F088-                142       ; init_buffer:
+F088-                143       ;     XOR     A            ; Initialize the write and read pointers
+F088-                144       ;     LD      IX,write_ptr
+F088-                145       ;     LD      (IX+0),A      ; write_ptr
+F088-                146       ;     LD      (IX+1),A      ; read_ptr
+F088-                147       ;     ret
+F088-                148
+F088-                149       ; CHECK_TX:
+F088-                150       ;     IN            A,(CONTR_8251)
+F088-                151       ;     AND           01H
+F088-                152       ;     RET           Z               ; return if Tx not ready
+F088-                153       ;     CALL    read_buffer
+F088-                154       ;     OR      A
+F088-                155       ;     RET     Z               ; return if buffer is empty
+F088-                156       ;     OUT           (DATA_8251),A   ; send char
+F088-                157       ;       RET
+F088-                158
+F088-                159       ; FLUSH_TX:
+F088-                160       ;     CALL    is_buffer_empty
+F088-                161       ;     RET     Z               ; return if buffer is empty
+F088-                162       ;     CALL    CHECK_TX        ; try to send char from buffer
+F088-                163       ;     JR      FLUSH_TX        ; repeat
+F088-                164
+F088-                165       ; ; Check if the buffer is empty
+F088-                166       ; is_buffer_empty:
+F088-                167       ;     LD      A,(IX+0)      ; write_ptr
+F088-                168       ;     CP      (IX+1)        ; read_ptr
+F088-                169       ;     ret                   ; Zero flag is set if buffer is empty
+F088-                170
+F088-                171       ; ; Check if the buffer is full
+F088-                172       ; is_buffer_full:
+F088-                173       ;     LD      A,(IX+0)      ; Get the current write pointer
+F088-                174       ;     inc     a             ; Move to the next position
+F088-                175       ;     CP      (IX+1)        ; read_ptr
+F088-                176       ;     ret                   ; Zero flag is set if buffer is full
+F088-                177
+F088-                178       ; ; Write data to the buffer with full check
+F088-                179       ; write_buffer:
+F088-                180       ;     call    is_buffer_full ; Check if the buffer is full
+F088-                181       ;     RET     Z           ; buffer_full   ; If the Zero flag is set, the buffer is full
+F088-                182
+F088-                183       ;     ; Write data (assuming SAVE_CHAR holds the data to write)
+F088-                184       ;     PUSH    HL
+F088-                185       ;     ld      H, BUFFER_START
+F088-                186       ;     LD      L,(IX+0)        ; Get the current write pointer
+F088-                187       ;     LD      A,(SAVE_CHAR)   ; put new char in buffer
+F088-                188       ;     ld      (hl), a         ; Write the data
+F088-                189       ;     POP     HL
+F088-                190       ;     ; Increment the write pointer
+F088-                191       ;     INC     (IX+0)          ; Move to the next position
+F088-                192       ;     ret
+F088-                193
+F088-                194       ; buffer_full:
+F088-                195       ;     ; Handle the error case (e.g., return without writing)
+F088-                196       ;     ;ret
+F088-                197
+F088-                198       ; ; Read data from the buffer with empty check
+F088-                199       ; read_buffer:
+F088-                200       ;     call    is_buffer_empty     ; Check if the buffer is empty
+F088-                201       ;     JR      Z, buffer_empty     ; If the Zero flag is set, the buffer is empty
+F088-                202
+F088-                203       ;     ; Read data
+F088-                204       ;     PUSH    HL
+F088-                205       ;     ld      H, BUFFER_START
+F088-                206       ;     LD      L,(IX+1)            ; Get the current read pointer
+F088-                207       ;     ld      A,(hl)              ; Read the data
+F088-                208       ;     POP     HL
+F088-                209       ;     ; Increment the read pointer
+F088-                210       ;     INC     (IX+1)              ; Move to the next position
+F088-                211       ;     ret
+F088-                212
+F088-                213       ; buffer_empty:
+F088-                214       ;     ; Handle the empty case (e.g., return without reading)
+F088-                215       ;     XOR     A
+F088-                216       ;     ret
+F088-                217
+F088-                218          ;################################################
+F088-                219          ;##   po ostatnim bajcie naszego programu wpisujemy 2 x AAAA
+F088-                220          ;.db 0AAh, 0AAh, 0AAh, 0AAh ; po tym markerze /2x AAAA/ nazwa programu
+F088-                221          ;################################################
+F088-AA AA AA AA     222        .db 0AAh, 0AAh, 0AAh, 0AAh ; marker nazwy
+F08C-43 6F 62 72 
+     61 2D 74 65 
+     72 6D 69 6E 
+     61 6C           223        .db "Cobra-terminal"      ; nazwa programu, max 16 znaków /dla LCD 4x 20 znakow w linii/
+F09A-FF              224        .db 0FFH                   ; koniec tekstu
+F09B-                225
+F09B-                226       ; Variables
+F09B-                227       ; write_ptr:   .db 0      ; Write pointer (offset from BUFFER_START)
+F09B-                228       ; read_ptr:    .db 0      ; Read pointer (offset from BUFFER_START)
+F09B-                229       ; SAVE_CHAR:
+F09B-                230       ;     .DB 0FFH
+F09B-                231       ; koniec zabawy. :-)
+F09B-                232
+F09B-                233                       .end
