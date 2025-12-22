@@ -19,6 +19,7 @@ Uruchomić monitor Cobra1 z klawiaturą mechaniczną i terminalem zamiast moduł
 - dodałem program dołączający MIK1 do procedury obsługi ekranu.
 
 ![Interfejs klawiatury](https://github.com/ZegarNotAvailable/Cobra1-RCbus/blob/main/HW/Kbd/Klaw-Cobra-RC.png)
+![Skoki posrednie](https://github.com/ZegarNotAvailable/Cobra1-RCbus/blob/main/PICT/Cobra-terminal.png)
 
 ## Drugi etap.
 
