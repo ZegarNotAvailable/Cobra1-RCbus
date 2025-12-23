@@ -20,6 +20,7 @@ Uruchomić monitor Cobra1 z klawiaturą mechaniczną i terminalem zamiast moduł
 
 ![Interfejs klawiatury](https://github.com/ZegarNotAvailable/Cobra1-RCbus/blob/main/HW/Kbd/Klaw-Cobra-RC.png)
 ![Skoki posrednie](https://github.com/ZegarNotAvailable/Cobra1-RCbus/blob/main/PICT/Cobra-terminal.png)
+[![Tytuł Wideo](https://img.youtube.com/vi/cYQcKnM-B-g/0.jpg)](https://youtu.be/cYQcKnM-B-g)
 
 ## Drugi etap.
 
